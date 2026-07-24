@@ -71,7 +71,12 @@ export default function Feed() {
 
   // Live updates. The server enforces read rules on the stream too, so a
   // subscriber only ever receives rows it would have been allowed to fetch.
+  //
+  // Wait for the stored session to be rehydrated first: opening the socket
+  // before that would connect as the anonymous key and then have to be torn
+  // down and re-dialled the moment the session lands.
   useEffect(() => {
+    if (!ready) return;
     const db = oxibase();
     const runs = db.subscribe("activities", (e) => {
       if (e.op === "insert" && e.doc) setActivities((prev) => [e.doc as unknown as Activity, ...prev]);
@@ -86,7 +91,7 @@ export default function Feed() {
       runs.unsubscribe();
       likes.unsubscribe();
     };
-  }, [load]);
+  }, [load, ready, session?.token]);
 
   const kudosFor = (ts: number) => kudos.filter((k) => k.activity_ts === ts);
   const iGaveKudos = (ts: number) => !!session && kudosFor(ts).some((k) => k.owner === session.email);
