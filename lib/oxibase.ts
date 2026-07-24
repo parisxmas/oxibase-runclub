@@ -27,6 +27,10 @@ export function oxibase(): OxibaseClient {
       tenantInPath: true,
       // The control plane signs end-user tokens, so `.auth` needs its origin.
       authUrl: URL_,
+      // The realtime endpoint is one socket for the whole deployment — the
+      // project is chosen inside it, not in the path. Stated explicitly so the
+      // app does not depend on the SDK's default for this.
+      realtimeUrl: `${URL_.replace(/^http/, "ws")}/ws`,
     });
   }
   return client;
