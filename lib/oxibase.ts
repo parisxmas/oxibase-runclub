@@ -36,9 +36,16 @@ export function oxibase(): OxibaseClient {
   return client;
 }
 
-/** A stored object's public URL (photos are world-readable by design here). */
+/**
+ * Where to render a run photo from.
+ *
+ * Not the storage URL directly: reads are authenticated and an `<img>` cannot
+ * carry a token, so this app proxies them (see app/api/photo). The key is
+ * already URL-safe and contains its own separators, so it is passed through
+ * verbatim — encoding it again would escape those separators and 404.
+ */
 export function photoUrl(key: string): string {
-  return `${URL_}/${REF}/api/storage/photos/${encodeURIComponent(key)}`;
+  return `/api/photo/${key}`;
 }
 
 export const SESSION_KEY = "runclub_session";

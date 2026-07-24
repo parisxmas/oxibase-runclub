@@ -33,8 +33,12 @@ export async function POST(req: Request) {
   }
 
   const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
-  // Namespaced by the *verified* caller, not by anything they sent.
-  const key = `${encodeURIComponent(caller.email)}/${Date.now()}.${ext}`;
+  // Namespaced by the *verified* caller, not by anything they sent. The owner
+  // segment is reduced to URL-safe characters rather than percent-encoded:
+  // storage decodes the path when it stores, so an encoded key would come back
+  // different from the one recorded here and never resolve again.
+  const owner = caller.email.toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
+  const key = `${owner}/${Date.now()}.${ext}`;
 
   const res = await service("PUT", `/api/storage/photos/${key}`, {
     body: bytes,
