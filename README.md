@@ -77,6 +77,13 @@ Import the repo and set four environment variables:
 | `NEXT_PUBLIC_OXIBASE_ANON_KEY` | the project's anon key (public) |
 | `OXIBASE_SERVICE_KEY` | the project's service_role key (**server only**) |
 
+### Sign-in methods
+
+Password (with **Forgot password?**, which emails a reset link), passwordless
+**magic links**, and any social provider configured on the project. The sign-in
+page renders whatever `auth.getSettings()` reports, so configuring Google or
+GitHub in the dashboard makes those buttons appear with no code change.
+
 Then add your deployment's URL to the project's **allowed redirect URLs** in the dashboard —
 magic links and social sign-in will only return a session to a URL on that list, which is what
 stops a stolen link from delivering a session somewhere else.

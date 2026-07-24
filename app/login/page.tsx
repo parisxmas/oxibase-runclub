@@ -69,6 +69,18 @@ export default function Login() {
     setNotice("Sign-in link sent — check your inbox. It works once and lasts 15 minutes.");
   }
 
+  async function forgotPassword() {
+    if (!email) return setError("enter your email first");
+    setBusy(true);
+    setError(null);
+    // Always resolves the same way, whether or not the address is registered —
+    // the server will not confirm who has an account here.
+    const { error: err } = await oxibase().auth.resetPasswordForEmail(email);
+    setBusy(false);
+    if (err) return setError(err);
+    setNotice("If that address has an account, a reset link is on its way. It lasts an hour.");
+  }
+
   function withProvider(provider: OAuthProvider) {
     const { error: err } = oxibase().auth.signInWithOAuth({
       provider,
@@ -120,6 +132,11 @@ export default function Login() {
             >
               {mode === "signup" ? "I already have an account" : "Create an account"}
             </button>
+            {mode === "signin" && (
+              <button type="button" className="ghost small" disabled={busy} onClick={forgotPassword}>
+                Forgot password?
+              </button>
+            )}
           </div>
         </form>
 
