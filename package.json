@@ -1,0 +1,26 @@
+{
+  "name": "oxibase-runclub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A running club app built entirely on OxiBase — auth, documents, SQL, time-series, realtime, storage and row-level security in one real product.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "setup": "node scripts/setup.mjs",
+    "seed": "node scripts/seed.mjs"
+  },
+  "dependencies": {
+    "next": "^15.1.0",
+    "oxibase-js": "https://oxibase.baltavista.com/oxibase-js.tgz",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}
