@@ -79,6 +79,19 @@ const RULES = {
   },
 };
 
+// The same rules store governs the other engines: a rule on a SQL table, a
+// time-series measurement or a storage bucket decides who may read it. Those
+// engines have no *row-level* policy, so the only useful answers are "everyone"
+// or "nobody but the server" — anything per-user is read through a route
+// handler that filters by the caller's verified identity.
+const OTHER_ENGINES = {
+  // Pace history is personal: readable at all would mean readable by every
+  // holder of the anon key. The app reads it via /api/pace instead.
+  runs: { read: "false", create: "false", update: "false", delete: "false" },
+  // Photos are public by design — the feed shows them to everyone.
+  // (Bucket `photos` is left unruled, i.e. readable.)
+};
+
 console.log(`# Setting up ${REF} on ${URL_}`);
 
 for (const [collection, rules] of Object.entries(RULES)) {
@@ -111,6 +124,11 @@ const DDL = [
 for (const stmt of DDL) {
   await sql(stmt);
   console.log(`  ✓ sql: ${stmt.split("\n")[0].trim().slice(0, 60)}…`);
+}
+
+for (const [name, rules] of Object.entries(OTHER_ENGINES)) {
+  await api("POST", `/api/rules/${name}`, rules);
+  console.log(`  ✓ rules: ${name.padEnd(10)} read=${rules.read} (time-series)`);
 }
 
 console.log("\nDone. Next: `npm run seed` for demo data.");

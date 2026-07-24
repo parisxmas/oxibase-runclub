@@ -10,11 +10,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { oxibase } from "@/lib/oxibase";
-import { useSession } from "@/lib/session";
-
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const URL_ = process.env.NEXT_PUBLIC_OXIBASE_URL!;
-const REF = process.env.NEXT_PUBLIC_OXIBASE_REF!;
+import { useSession, authHeader } from "@/lib/session";
 
 type Bucket = { ts: number; value: number };
 type JournalEntry = { _id?: number; owner: string; ts: number; body: string };
@@ -41,22 +37,13 @@ export default function Me() {
     if (!session) return;
     loadJournal();
 
-    // Weekly mean pace, aggregated server-side. postgrest-js has no vocabulary
-    // for the engine's `agg`/`interval` extension, so this one is a plain fetch
-    // against the same PostgREST URL with the tsdb profile.
-    const start = Date.now() - 12 * WEEK_MS;
-    const qs = new URLSearchParams({
-      select: "pace_min_km",
-      runner: `eq.${session.email}`,
-      ts: `gte.${start}`,
-      agg: "mean",
-      interval: String(WEEK_MS),
-    });
-    fetch(`${URL_}/${REF}/rest/v1/runs?${qs}`, {
-      headers: { "Accept-Profile": "tsdb", Authorization: `Bearer ${session.token}` },
-    })
+    // Weekly mean pace. The series itself is private — a time-series has no
+    // row-level policy, so "readable" would mean readable by everyone — and
+    // this app's route reads it for the caller alone. The bucketing is still
+    // the engine's work, not the browser's.
+    fetch("/api/pace", { headers: authHeader(session) })
       .then((r) => (r.ok ? r.json() : []))
-      .then((rows) => setWeeks(Array.isArray(rows) ? (rows as Bucket[]).filter((b) => b.value != null) : []))
+      .then((rows) => setWeeks(Array.isArray(rows) ? (rows as Bucket[]) : []))
       .catch(() => setWeeks([]));
   }, [session, loadJournal]);
 
