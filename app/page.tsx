@@ -97,6 +97,21 @@ export default function Feed() {
   const kudosFor = (ts: number) => kudos.filter((k) => k.activity_ts === ts);
   const iGaveKudos = (ts: number) => !!session && kudosFor(ts).some((k) => k.owner === session.email);
 
+  // Deleting your own run. The rule (`delete: auth.username == doc.owner`) is
+  // what enforces "your own" — the button is merely the affordance, and the
+  // server refuses the same call made for someone else's post.
+  async function deleteRun(a: Activity) {
+    if (!session || a.owner !== session.email) return;
+    if (!confirm("Delete this run?")) return;
+    const db = oxibase();
+    const { error: err } = await db.from("activities").delete().eq("ts", a.ts).eq("owner", session.email);
+    if (err) return setError(err.message);
+    // Your own kudos on it go too; other people's become unreachable and are
+    // filtered out of the feed by the join on `activity_ts`.
+    await db.from("kudos").delete().eq("activity_ts", a.ts).eq("owner", session.email);
+    setActivities((prev) => prev.filter((x) => x.ts !== a.ts));
+  }
+
   async function toggleKudos(a: Activity) {
     if (!session) return;
     const db = oxibase();
@@ -170,9 +185,14 @@ export default function Feed() {
             >
               ♥ {kudosFor(a.ts).length}
             </button>
-            <span className="muted small">
+            <span className="muted small grow">
               {kudosFor(a.ts).length === 0 ? "no kudos yet" : kudosFor(a.ts).map((k) => k.owner.split("@")[0]).join(", ")}
             </span>
+            {session?.email === a.owner && (
+              <button className="ghost small" title="Delete this run" onClick={() => deleteRun(a)}>
+                Delete
+              </button>
+            )}
           </div>
         </article>
       ))}

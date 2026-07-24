@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { oxibase } from "@/lib/oxibase";
-import { useSession } from "@/lib/session";
+import { useSession, authHeader } from "@/lib/session";
 
 type Race = { id: number; name: string; distance_km: number; starts_at: number; city: string | null };
 type Standing = { race: string; runner: string; finish_seconds: number };
@@ -68,18 +68,25 @@ export default function Races() {
     load();
   }, [load]);
 
-  // Signing up is a *write*, and a browser key may not write SQL — so it goes
-  // through the same PostgREST surface, where the engine accepts an insert.
-  async function signUp(race: Race) {
+  // Entering and withdrawing are *writes to a SQL table*, which a browser key
+  // may not do — SQL has no per-row rules, so the server only accepts them
+  // from a service key. They go through this app's route, which pins the
+  // runner to the caller's verified identity.
+  async function enter(race: Race, join: boolean) {
     if (!session) return;
     setBusy(true);
     setError(null);
-    const { error: err } = await oxibase()
-      .from("signups")
-      .insert({ race_id: race.id, runner: session.email });
+    const res = await fetch(join ? "/api/signup" : `/api/signup?race_id=${race.id}`, {
+      method: join ? "POST" : "DELETE",
+      headers: { "Content-Type": "application/json", ...authHeader(session) },
+      body: join ? JSON.stringify({ race_id: race.id }) : undefined,
+    });
     setBusy(false);
-    if (err) setError(err.message);
-    else load();
+    if (!res.ok) {
+      setError((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
+    } else {
+      load();
+    }
   }
 
   return (
@@ -120,10 +127,20 @@ export default function Races() {
                   <td className="muted small">{new Date(Number(r.starts_at)).toLocaleDateString()}</td>
                   <td style={{ textAlign: "right" }}>
                     {mine.has(r.id) ? (
-                      <span className="tag">signed up</span>
+                      <span className="row" style={{ gap: 6, justifyContent: "flex-end" }}>
+                        <span className="tag">entered</span>
+                        <button
+                          className="ghost small"
+                          disabled={busy}
+                          title="Withdraw from this race"
+                          onClick={() => enter(r, false)}
+                        >
+                          Withdraw
+                        </button>
+                      </span>
                     ) : (
-                      <button className="small" disabled={!session || busy} onClick={() => signUp(r)}>
-                        {session ? "Sign up" : "Sign in"}
+                      <button className="small" disabled={!session || busy} onClick={() => enter(r, true)}>
+                        {session ? "Enter" : "Sign in"}
                       </button>
                     )}
                   </td>
