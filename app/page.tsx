@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { oxibase, photoUrl } from "@/lib/oxibase";
 import { useSession, authHeader } from "@/lib/session";
+import { prepareImage, formatBytes } from "@/lib/image";
 
 type Activity = {
   _id?: number;
@@ -186,6 +187,7 @@ function PostRun({ onPosted }: { onPosted: () => void }) {
   const [mins, setMins] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shrunk, setShrunk] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function post(e: React.FormEvent) {
@@ -204,7 +206,7 @@ function PostRun({ onPosted }: { onPosted: () => void }) {
       //    needs the service key and that never reaches a browser.
       let photo_key: string | null = null;
       const file = fileRef.current?.files?.[0];
-      if (file) photo_key = await uploadPhoto(file, authHeader(session));
+      if (file) photo_key = await uploadPhoto(file, authHeader(session), setShrunk);
 
       const ts = Date.now();
       // 2. The run itself, written directly by the browser — the rules decide.
@@ -226,6 +228,7 @@ function PostRun({ onPosted }: { onPosted: () => void }) {
       setKm("");
       setMins("");
       if (fileRef.current) fileRef.current.value = "";
+      setShrunk(null);
       onPosted();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -256,7 +259,10 @@ function PostRun({ onPosted }: { onPosted: () => void }) {
       </div>
       <label className="field">
         Photo (optional)
-        <input ref={fileRef} type="file" accept="image/*" />
+        <input ref={fileRef} type="file" accept="image/*" onChange={() => setShrunk(null)} />
+        <span className="muted small">
+          {shrunk ? `resized in your browser: ${shrunk}` : "resized and converted to WebP before it leaves your browser"}
+        </span>
       </label>
       {error && <div className="error">{error}</div>}
       <button className="primary" disabled={busy}>
@@ -267,12 +273,17 @@ function PostRun({ onPosted }: { onPosted: () => void }) {
 }
 
 /**
- * Downscale in the browser, then upload. Vercel caps a function body at
- * 4.5 MB, and a modern phone photo is bigger than that — so shrinking is a
- * requirement, not a nicety.
+ * Shrink the photo in the browser, then upload it. A phone photo is bigger
+ * than a Vercel function will even accept, and far bigger than a feed image
+ * needs — see lib/image.
  */
-async function uploadPhoto(file: File, headers: Record<string, string>): Promise<string> {
-  const blob = await downscale(file, 1600, 0.82);
+async function uploadPhoto(
+  file: File,
+  headers: Record<string, string>,
+  onProgress?: (note: string) => void,
+): Promise<string> {
+  const { blob, originalBytes } = await prepareImage(file);
+  onProgress?.(`${formatBytes(originalBytes)} → ${formatBytes(blob.size)}`);
   const res = await fetch("/api/upload", {
     method: "POST",
     headers: { "Content-Type": blob.type, ...headers },
@@ -280,23 +291,4 @@ async function uploadPhoto(file: File, headers: Record<string, string>): Promise
   });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "upload failed");
   return (await res.json()).key as string;
-}
-
-function downscale(file: File, maxEdge: number, quality: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject(new Error("canvas unavailable"));
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(img.src);
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("could not encode the image"))), "image/jpeg", quality);
-    };
-    img.onerror = () => reject(new Error("could not read the image"));
-    img.src = URL.createObjectURL(file);
-  });
 }
