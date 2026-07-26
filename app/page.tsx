@@ -10,8 +10,8 @@
 //   time-series— the run's distance/pace is appended by /api/activity
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { oxibase, photoUrl } from "@/lib/oxibase";
-import { useSession, authHeader } from "@/lib/session";
+import { oxibase, photoUrl, fetchAuthed } from "@/lib/oxibase";
+import { useSession } from "@/lib/session";
 import { prepareImage, formatBytes } from "@/lib/image";
 
 type Activity = {
@@ -226,7 +226,7 @@ function PostRun({ onPosted }: { onPosted: () => void }) {
       //    needs the service key and that never reaches a browser.
       let photo_key: string | null = null;
       const file = fileRef.current?.files?.[0];
-      if (file) photo_key = await uploadPhoto(file, authHeader(session), setShrunk);
+      if (file) photo_key = await uploadPhoto(file, setShrunk);
 
       const ts = Date.now();
       // 2. The run itself, written directly by the browser — the rules decide.
@@ -237,9 +237,9 @@ function PostRun({ onPosted }: { onPosted: () => void }) {
 
       // 3. The time-series point, again via the server (no rules exist for the
       //    series engine, so a browser key may read it but never append).
-      const res = await fetch("/api/activity", {
+      const res = await fetchAuthed("/api/activity", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeader(session) },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ distance_km: distance, duration_s: duration, ts }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "could not record the run");
@@ -297,16 +297,12 @@ function PostRun({ onPosted }: { onPosted: () => void }) {
  * than a Vercel function will even accept, and far bigger than a feed image
  * needs — see lib/image.
  */
-async function uploadPhoto(
-  file: File,
-  headers: Record<string, string>,
-  onProgress?: (note: string) => void,
-): Promise<string> {
+async function uploadPhoto(file: File, onProgress?: (note: string) => void): Promise<string> {
   const { blob, originalBytes } = await prepareImage(file);
   onProgress?.(`${formatBytes(originalBytes)} → ${formatBytes(blob.size)}`);
-  const res = await fetch("/api/upload", {
+  const res = await fetchAuthed("/api/upload", {
     method: "POST",
-    headers: { "Content-Type": blob.type, ...headers },
+    headers: { "Content-Type": blob.type },
     body: blob,
   });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "upload failed");

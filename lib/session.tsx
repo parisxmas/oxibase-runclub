@@ -93,7 +93,7 @@ export function useSession() {
   return useContext(SessionContext);
 }
 
-/** The bearer token for calls to this app's own route handlers. */
-export function authHeader(session: Session): Record<string, string> {
-  return session ? { Authorization: `Bearer ${session.token}` } : {};
-}
+// There is deliberately no `authHeader(session)` helper: the rendered token can
+// be a renewal behind, and a route handler answers a stale one with 401. Call
+// this app's routes through `fetchAuthed` (lib/oxibase), which reads the live
+// token and retries once after a refresh.

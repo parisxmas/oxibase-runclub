@@ -9,8 +9,8 @@
 //                 The filtering is the server's, not this query's.
 
 import { useCallback, useEffect, useState } from "react";
-import { oxibase } from "@/lib/oxibase";
-import { useSession, authHeader } from "@/lib/session";
+import { oxibase, fetchAuthed } from "@/lib/oxibase";
+import { useSession } from "@/lib/session";
 
 type Bucket = { ts: number; value: number };
 type JournalEntry = { _id?: number; owner: string; ts: number; body: string };
@@ -41,7 +41,7 @@ export default function Me() {
     // row-level policy, so "readable" would mean readable by everyone — and
     // this app's route reads it for the caller alone. The bucketing is still
     // the engine's work, not the browser's.
-    fetch("/api/pace", { headers: authHeader(session) })
+    fetchAuthed("/api/pace")
       .then((r) => (r.ok ? r.json() : []))
       .then((rows) => setWeeks(Array.isArray(rows) ? (rows as Bucket[]) : []))
       .catch(() => setWeeks([]));

@@ -9,8 +9,8 @@
 // browser key, enforced by the server.
 
 import { useCallback, useEffect, useState } from "react";
-import { oxibase } from "@/lib/oxibase";
-import { useSession, authHeader } from "@/lib/session";
+import { oxibase, fetchAuthed } from "@/lib/oxibase";
+import { useSession } from "@/lib/session";
 
 type Race = { id: number; name: string; distance_km: number; starts_at: number; city: string | null };
 type Standing = { race: string; runner: string; finish_seconds: number };
@@ -76,9 +76,9 @@ export default function Races() {
     if (!session) return;
     setBusy(true);
     setError(null);
-    const res = await fetch(join ? "/api/signup" : `/api/signup?race_id=${race.id}`, {
+    const res = await fetchAuthed(join ? "/api/signup" : `/api/signup?race_id=${race.id}`, {
       method: join ? "POST" : "DELETE",
-      headers: { "Content-Type": "application/json", ...authHeader(session) },
+      headers: { "Content-Type": "application/json" },
       body: join ? JSON.stringify({ race_id: race.id }) : undefined,
     });
     setBusy(false);

@@ -48,6 +48,30 @@ export function photoUrl(key: string): string {
   return `/api/photo/${key}`;
 }
 
+/**
+ * Call one of this app's own route handlers as the signed-in user.
+ *
+ * Deliberately not the token React last rendered: the SDK renews access tokens
+ * on its own schedule, so a call that lands after expiry — but before any
+ * `.from()` read has triggered a refresh — would carry a stale token and be
+ * refused (silently, wherever the caller treats !ok as "no data"). This reads
+ * the live token, and on a 401 refreshes once and retries. Parallel callers
+ * cause a single refresh, coalesced inside the SDK.
+ */
+export async function fetchAuthed(input: string, init: RequestInit = {}): Promise<Response> {
+  const auth = oxibase().auth;
+  const send = () => {
+    const token = auth.getSession()?.token;
+    const headers = new Headers(init.headers);
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    return fetch(input, { ...init, headers });
+  };
+  const res = await send();
+  if (res.status !== 401 || !auth.getSession()) return res;
+  const { error } = await auth.refreshSession();
+  return error ? res : send();
+}
+
 export const SESSION_KEY = "runclub_session";
 
 /** Persist the session so a reload keeps you signed in. */
